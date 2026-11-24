@@ -1,147 +1,91 @@
-# Emlak İlan Botu ve Web Arayüzü
+# Emlak İlan Botu (WhatsApp + GPT)
 
-Bu proje, WhatsApp üzerinden emlak ilanlarını otomatik olarak toplayan, Google Drive'a fotoğrafları yükleyen ve modern bir web arayüzünde listeleyen bir sistemdir.
+Emlak danışmanının WhatsApp'tan yazdığı serbest metni yapay zeka ile yapılandırılmış ilana çeviren, fotoğrafları Google Drive'a yükleyen ve ilanları bir web arayüzünde listeleyen sistem.
 
-## 🚀 Özellikler
+## Çözdüğü problem
 
-### WhatsApp Bot
-- `/ekle` komutu ile yeni ilan ekleme
-- GPT destekli ilan detayları analizi
-- Otomatik fotoğraf toplama ve Google Drive'a yükleme
-- İlanları veritabanına kaydetme
+Emlak ofislerinde ilan girişi çoğunlukla elle yapılır: fiyatı, mahalleyi, oda sayısını forma tek tek yazmak ve fotoğrafları klasörlemek zaman alır. Burada danışman ilanı WhatsApp'ta doğal bir mesajla yazar ve fotoğrafları gönderir; geri kalanı otomatik olur.
 
-### Web Arayüzü
-- Modern ve responsive tasarım
-- İlanları kart görünümünde listeleme
-- Gelişmiş arama ve filtreleme özellikleri
-  - Başlık, açıklama ve mahalle bazında arama
-  - Fiyat aralığına göre filtreleme
-  - Oda sayısına göre filtreleme
-  - Metrekare aralığına göre filtreleme
-- Google Drive entegrasyonu ile fotoğraf görüntüleme
+## Nasıl çalışır
 
-## 🛠️ Teknolojiler
+1. Danışman WhatsApp numarasına ilanı serbest metinle yazar. Örnek: `Bahçelievler, Atatürk Cd., 3+1, 120 m2, 2.500.000 TL`
+2. GPT (`gpt-3.5-turbo`) mesajı başlık, açıklama, fiyat, mahalle, sokak, oda sayısı ve metrekare alanlarına ayırır.
+3. Bot fotoğrafları bekler. Gelen her fotoğraf Google Drive'da ilana özel bir klasöre yüklenir (dosyalar "bağlantıya sahip herkes okuyabilir" olarak paylaşılır).
+4. Danışman `/tamamla` yazınca ilan PostgreSQL'e kaydedilir ve onay mesajı döner.
+5. İlan web arayüzünde kart olarak görünür.
 
-### Backend
-- FastAPI
-- SQLAlchemy
-- PostgreSQL
-- Twilio API (WhatsApp entegrasyonu)
-- Google Drive API
-- OpenAI GPT API
+Komutlar:
 
-### Frontend
-- React
-- Tailwind CSS
-- Axios
-- Heroicons
+| Komut | Ne yapar |
+| --- | --- |
+| `/tamamla` | Fotoğraf yüklemeyi bitirir ve ilanı kaydeder. |
+| `/sil` | Anahtar kelimeyle ilan klasörü arar; numara seçilince Drive klasörü ve veritabanı kaydı silinir. |
 
-## 📋 Gereksinimler
+Başka bir komut gerekmez: durumu olmayan bir kullanıcının gönderdiği ilk mesaj ilan metni olarak işlenir.
 
-- Python 3.8+
-- Node.js 14+
-- PostgreSQL
-- Google Cloud Platform hesabı
-- Twilio hesabı
-- OpenAI API anahtarı
+## Özellikler
 
-## 🔧 Kurulum
+- Serbest metinden ilan alanı çıkarma (GPT).
+- Twilio WhatsApp webhook'u ile çok adımlı konuşma akışı (ilan metni, fotoğraflar, tamamlama).
+- Google Drive'da ilan başına klasör ve fotoğraf yükleme.
+- REST API: ilan listeleme, ilan oluşturma, ID ile ilan getirme.
+- React arayüzü: kart görünümü, arama (başlık, açıklama, mahalle), fiyat, oda sayısı ve metrekare filtreleri.
 
-1. Projeyi klonlayın:
-```bash
-git clone https://github.com/kullaniciadi/emlak-bot-yapayzeka.git
-cd emlak-bot-yapayzeka
+## Teknoloji yığını
+
+| Katman | Teknoloji |
+| --- | --- |
+| Bot ve API | Python, FastAPI, SQLAlchemy |
+| Veritabanı | PostgreSQL |
+| Mesajlaşma | Twilio (WhatsApp) |
+| Yapay zeka | OpenAI API |
+| Dosya depolama | Google Drive API |
+| Arayüz | React, Tailwind CSS, Axios |
+
+## Proje yapısı
+
+```
+bot/            Twilio webhook'u (webhook.py) ve GPT ayrıştırıcı (gpt_parser.py)
+backend/        FastAPI ilan API'si, SQLAlchemy modelleri, testler
+drive_service/  Google Drive yükleme yardımcıları
+frontend/       React arayüzü
+migrate.py      Tablo oluşturma yardımcısı
 ```
 
-2. Backend bağımlılıklarını yükleyin:
+## Kurulum
+
+Gereksinimler: Python 3.8+, Node.js, PostgreSQL, Twilio hesabı, OpenAI API anahtarı, Google Drive için servis hesabı bilgileri.
+
 ```bash
 pip install -r requirements.txt
+cp .env.example .env     # değerleri doldurun
 ```
 
-3. Frontend bağımlılıklarını yükleyin:
+`.env.example` dosyasındaki değişkenleri doldurun. Anahtarları depoya eklemeyin.
+
+Çalıştırma:
+
 ```bash
+# WhatsApp webhook'u (Twilio bu adrese yönlendirilir: /webhook)
+uvicorn bot.webhook:app --reload
+
+# İlan API'si (tablolar açılışta otomatik oluşturulur)
+uvicorn backend.main:app --reload
+
+# Arayüz
 cd frontend
 npm install
-```
-
-4. Gerekli ortam değişkenlerini ayarlayın:
-```bash
-# .env dosyası oluşturun
-cp .env.example .env
-```
-
-`.env` dosyasını düzenleyin:
-```env
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/emlak_db
-
-# Twilio
-TWILIO_ACCOUNT_SID=your_account_sid
-TWILIO_AUTH_TOKEN=your_auth_token
-TWILIO_PHONE_NUMBER=your_phone_number
-
-# Google Drive
-GOOGLE_DRIVE_CREDENTIALS_FILE=path/to/credentials.json
-GOOGLE_DRIVE_MAIN_FOLDER_ID=your_folder_id
-
-# OpenAI
-OPENAI_API_KEY=your_api_key
-```
-
-5. Veritabanını oluşturun:
-```bash
-# PostgreSQL'de veritabanı oluşturun
-createdb emlak_db
-
-# Migrasyonları çalıştırın
-alembic upgrade head
-```
-
-6. Uygulamayı başlatın:
-
-Backend:
-```bash
-uvicorn bot.webhook:app --reload
-```
-
-Frontend:
-```bash
-cd frontend
 npm start
 ```
 
-## 📱 Kullanım
+Arayüz API adresini `REACT_APP_API_URL` ortam değişkeninden okur (varsayılan `http://localhost:8000`).
 
-### WhatsApp Bot Kullanımı
+## Bilinen sınırlar
 
-1. WhatsApp'ta bot numarasına mesaj gönderin
-2. `/ekle` komutunu kullanın
-3. İlan detaylarını girin (örnek):
-```
-3+1 daire, 120m2, Bahçelievler mahallesi, 2.500.000 TL
-```
-4. Fotoğraf sayısını belirtin
-5. Fotoğrafları gönderin
+- Konuşma durumu bellekte tutulur; bot yeniden başlarsa yarım kalan ilanlar kaybolur.
+- Gönderen numaralar için yetkilendirme (izinli numara listesi) ve API için kimlik doğrulama yoktur.
+- GPT istemi ofis kimliğini sabit `1` olarak üretir; tek ofis için tasarlanmıştır.
 
-### Web Arayüzü Kullanımı
+## Lisans
 
-1. Tarayıcıda `http://localhost:3000` adresine gidin
-2. İlanları görüntüleyin
-3. Arama ve filtreleme özelliklerini kullanın
-4. İlan detaylarını görüntülemek için "Detayları Gör" butonuna tıklayın
-
-## 🤝 Katkıda Bulunma
-
-1. Bu depoyu fork edin
-2. Yeni bir branch oluşturun (`git checkout -b feature/amazing-feature`)
-3. Değişikliklerinizi commit edin (`git commit -m 'Add some amazing feature'`)
-4. Branch'inizi push edin (`git push origin feature/amazing-feature`)
-5. Pull Request oluşturun
-
-## 📝 Lisans
-
-Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICENSE) dosyasına bakın.
-
-## 📞 İletişim
-
-muhammetenesdemirkol.com
+MIT. Ayrıntılar için [LICENSE](LICENSE).
